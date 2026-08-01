@@ -20,12 +20,41 @@ namespace Saurus.Ui;
 /// </summary>
 public sealed class StatusBadge : Window
 {
-    private const double BadgeWidth = 92;
-    private const double BadgeHeight = 30;
-    private const double ShadowPad = 10;
-    private const double WindowWidth = BadgeWidth + ShadowPad * 2;
-    private const double WindowHeight = BadgeHeight + ShadowPad * 2;
-    private const int EdgeGapPx = 18;
+    // Design sizes, in DIPs, for the reference workspace below. Everything is multiplied by
+    // a factor derived from the monitor the badge is actually on.
+    private const double DesignWidth = 92;
+    private const double DesignHeight = 30;
+    private const double DesignPad = 10;      // transparent margin for shadow and hover growth
+    private const double DesignGap = 18;      // distance from the screen edges
+    private const double DesignDot = 9;
+    private const double DesignFont = 11.5;
+
+    /// <summary>
+    /// The workspace these sizes were chosen against, in device-independent pixels.
+    ///
+    /// DPI scaling alone is not enough. It keeps the badge the same *physical* size, which is
+    /// right for text and wrong for a corner ornament: 92px is a comfortable 4.8% of a 1080p
+    /// desktop, a cramped 2.4% of an unscaled 4K one, and an intrusive 6.7% of a 1366x768
+    /// laptop. Scaling against the logical workspace as well keeps it the same *proportion*
+    /// of what the user can see.
+    /// </summary>
+    private const double ReferenceWidth = 1920;
+    private const double ReferenceHeight = 1080;
+
+    /// <summary>
+    /// Bounds on that factor. Unclamped, a 4K monitor would give a badge nearly twice the
+    /// design size and a small laptop would get something unreadable.
+    /// </summary>
+    private const double MinFactor = 0.80;
+    private const double MaxFactor = 1.60;
+
+    private double _f = 1.0;
+
+    private double BadgeW => DesignWidth * _f;
+    private double BadgeH => DesignHeight * _f;
+    private double ShadowPad => DesignPad * _f;
+    private double WindowW => BadgeW + ShadowPad * 2;
+    private double WindowH => BadgeH + ShadowPad * 2;
 
     private static readonly Color Accent = Color.FromRgb(0x5A, 0xA9, 0xFF);
     private static readonly Color Idle = Color.FromRgb(0x6A, 0x70, 0x7C);
@@ -113,19 +142,21 @@ public sealed class StatusBadge : Window
         ShowInTaskbar = false;
         ShowActivated = false;
         Topmost = true;
-        Width = WindowWidth;
-        Height = WindowHeight;
+        // Built at the design size; Relayout scales everything once the target monitor is
+        // known, which is not until the window has a handle.
+        Width = WindowW;
+        Height = WindowH;
 
         _dot = new Border
         {
-            Width = 9,
-            Height = 9,
-            CornerRadius = new CornerRadius(4.5),
+            Width = DesignDot,
+            Height = DesignDot,
+            CornerRadius = new CornerRadius(DesignDot / 2),
             Background = new SolidColorBrush(Accent),
             VerticalAlignment = VerticalAlignment.Center,
             Effect = new DropShadowEffect
             {
-                BlurRadius = 9, ShadowDepth = 0, Opacity = 0.9, Color = Accent
+                BlurRadius = DesignDot, ShadowDepth = 0, Opacity = 0.9, Color = Accent
             }
         };
 
@@ -134,7 +165,7 @@ public sealed class StatusBadge : Window
             Text = "0",
             Foreground = new SolidColorBrush(Color.FromRgb(0xC4, 0xCB, 0xD6)),
             FontFamily = new FontFamily("Segoe UI"),
-            FontSize = 11.5,
+            FontSize = DesignFont,
             FontWeight = FontWeights.Medium,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(7, 0, 0, 0)
@@ -150,9 +181,9 @@ public sealed class StatusBadge : Window
 
         _badge = new Border
         {
-            Width = BadgeWidth,
-            Height = BadgeHeight,
-            CornerRadius = new CornerRadius(BadgeHeight / 2),
+            Width = DesignWidth,
+            Height = DesignHeight,
+            CornerRadius = new CornerRadius(DesignHeight / 2),
             Background = new LinearGradientBrush(
                 Color.FromArgb(0xF2, 0x22, 0x26, 0x2F),
                 Color.FromArgb(0xF2, 0x14, 0x17, 0x1D),
@@ -193,7 +224,24 @@ public sealed class StatusBadge : Window
         };
         _refresh.Tick += (_, _) => Refresh();
         _guards.StateChanged += Refresh;
+
+        // Plugging in a monitor, changing resolution, or docking a laptop all change the
+        // workspace the badge was sized against. Windows batches these events, so the
+        // re-layout is deferred a beat rather than run against half-applied geometry.
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
     }
+
+    private void OnDisplaySettingsChanged(object? sender, EventArgs e) =>
+        Dispatcher.InvokeAsync(async () =>
+        {
+            await Task.Delay(400);
+            if (!IsVisible) return;
+
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd == IntPtr.Zero || !Win32.GetWindowRect(hwnd, out var r)) return;
+
+            Resize(new Win32.POINT { X = r.Left, Y = r.Top });
+        });
 
     // ------------------------------------------------------------------ lifecycle
 
@@ -202,24 +250,35 @@ public sealed class StatusBadge : Window
         Opacity = 0;
         Show();
 
+        // Anchor point decides which monitor's geometry the layout is built from: the saved
+        // position if there is one, otherwise wherever the cursor is at startup.
+        Win32.POINT anchor;
+        if (_cfg.BadgeX is int sx && _cfg.BadgeY is int sy) anchor = new Win32.POINT { X = sx, Y = sy };
+        else Win32.GetCursorPos(out anchor);
+
+        Relayout(anchor);
+
         var hwnd = new WindowInteropHelper(this).Handle;
         var scale = Win32.ScaleFor(hwnd);
-        var w = (int)Math.Round(WindowWidth * scale);
-        var h = (int)Math.Round(WindowHeight * scale);
+        var work = Win32.WorkAreaForPoint(anchor);
+
+        var w = (int)Math.Round(WindowW * scale);
+        var h = (int)Math.Round(WindowH * scale);
+        var gap = (int)Math.Round(DesignGap * _f * scale);
+        var inset = (int)Math.Round(ShadowPad * scale);
 
         int x, y;
         if (_cfg.BadgeX is int cx && _cfg.BadgeY is int cy)
         {
-            x = cx;
-            y = cy;
+            // A saved position can be stale: the monitor may have gone, the resolution may
+            // have changed, or the badge may now be larger than the gap it was left in.
+            // Clamped rather than trusted, otherwise it lands half off-screen and cannot be
+            // dragged back.
+            x = Math.Clamp(cx, work.Left - inset, work.Right - w + inset);
+            y = Math.Clamp(cy, work.Top - inset, work.Bottom - h + inset);
         }
         else
         {
-            // Default: bottom-right of the monitor containing the cursor at startup.
-            Win32.GetCursorPos(out var cursor);
-            var work = Win32.WorkAreaForPoint(cursor);
-            var gap = (int)Math.Round(EdgeGapPx * scale);
-            var inset = (int)Math.Round(ShadowPad * scale);
             x = work.Right - w - gap + inset;
             y = work.Bottom - h - gap + inset;
         }
@@ -234,6 +293,76 @@ public sealed class StatusBadge : Window
 
         Refresh();
         _refresh.Start();
+    }
+
+    /// <summary>
+    /// Recomputes the size factor for the monitor containing <paramref name="anchor"/> and
+    /// pushes it into the visual tree. Called on show, after a drag (which may have crossed
+    /// monitors) and when the display configuration changes.
+    /// </summary>
+    private void Relayout(Win32.POINT anchor)
+    {
+        var work = Win32.WorkAreaForPoint(anchor);
+        var scale = Win32.ScaleFor(new WindowInteropHelper(this).Handle);
+
+        // Compared in DIPs, so DPI scaling and workspace scaling compose rather than fight:
+        // a 1080p screen at 150% has a 1280x720 logical workspace and should get a slightly
+        // smaller badge, which the DPI factor then draws at the right physical size.
+        var wDip = (work.Right - work.Left) / scale;
+        var hDip = (work.Bottom - work.Top) / scale;
+
+        // The smaller of the two ratios. Using width alone would make an ultrawide produce a
+        // badge sized for a monitor twice as tall as it is.
+        var factor = Math.Min(wDip / ReferenceWidth, hDip / ReferenceHeight);
+        var next = Math.Clamp(factor, MinFactor, MaxFactor);
+
+        if (Math.Abs(next - _f) < 0.02) return;
+        _f = next;
+
+        Width = WindowW;
+        Height = WindowH;
+
+        _badge.Width = BadgeW;
+        _badge.Height = BadgeH;
+        _badge.CornerRadius = new CornerRadius(BadgeH / 2);
+
+        var dot = DesignDot * _f;
+        _dot.Width = dot;
+        _dot.Height = dot;
+        _dot.CornerRadius = new CornerRadius(dot / 2);
+        if (_dot.Effect is DropShadowEffect fx) fx.BlurRadius = dot;
+
+        _label.FontSize = DesignFont * _f;
+        _label.Margin = new Thickness(7 * _f, 0, 0, 0);
+
+        Core.Log.Info($"badge layout: {wDip:F0}x{hDip:F0} dip -> factor {_f:F2}");
+    }
+
+    /// <summary>
+    /// Re-runs the layout for the monitor at <paramref name="anchor"/> and resizes the window
+    /// in place, keeping its top-left where it is. Clamped back into the work area, since a
+    /// resolution change can leave a badge stranded off-screen with no way to reach it.
+    /// </summary>
+    private void Resize(Win32.POINT anchor)
+    {
+        var before = _f;
+        Relayout(anchor);
+
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero || !Win32.GetWindowRect(hwnd, out var r)) return;
+
+        var scale = Win32.ScaleFor(hwnd);
+        var work = Win32.WorkAreaForPoint(anchor);
+        var w = (int)Math.Round(WindowW * scale);
+        var h = (int)Math.Round(WindowH * scale);
+        var inset = (int)Math.Round(ShadowPad * scale);
+
+        var x = Math.Clamp(r.Left, work.Left - inset, Math.Max(work.Left, work.Right - w + inset));
+        var y = Math.Clamp(r.Top, work.Top - inset, Math.Max(work.Top, work.Bottom - h + inset));
+
+        if (Math.Abs(before - _f) < 0.001 && x == r.Left && y == r.Top) return;
+
+        Win32.SetWindowPos(hwnd, Win32.HWND_TOPMOST, x, y, w, h, Win32.SWP_NOACTIVATE);
     }
 
     public void Refresh()
@@ -316,8 +445,16 @@ public sealed class StatusBadge : Window
         var hwnd = new WindowInteropHelper(this).Handle;
         if (!Win32.GetWindowRect(hwnd, out var r)) return;
 
-        _cfg.BadgeX = r.Left;
-        _cfg.BadgeY = r.Top;
+        // The drag may have crossed onto a monitor with a different shape or DPI, so the
+        // size is recomputed for wherever it landed before the position is stored.
+        Resize(new Win32.POINT { X = r.Left, Y = r.Top });
+
+        if (Win32.GetWindowRect(hwnd, out r))
+        {
+            _cfg.BadgeX = r.Left;
+            _cfg.BadgeY = r.Top;
+        }
+
         try { _cfg.Save(); }
         catch (Exception ex) { Core.Log.Error("could not save badge position", ex); }
     }
@@ -391,5 +528,15 @@ public sealed class StatusBadge : Window
     {
         _refresh.Stop();
         Hide();
+    }
+
+    /// <summary>
+    /// SystemEvents holds a static reference to the handler, so failing to detach keeps this
+    /// window alive for the life of the process.
+    /// </summary>
+    protected override void OnClosed(EventArgs e)
+    {
+        Microsoft.Win32.SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+        base.OnClosed(e);
     }
 }
