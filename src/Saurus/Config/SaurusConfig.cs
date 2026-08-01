@@ -104,11 +104,14 @@ public sealed class SaurusConfig
     public sealed class UpdateConfig
     {
         /// <summary>
-        /// GitHub repository holding the releases, e.g. "https://github.com/you/saurus".
-        /// Empty disables updating entirely, which is the right default: a build that has not
-        /// been told where its releases live should not be reaching out to guess.
+        /// GitHub repository holding the releases.
+        ///
+        /// Defaulted rather than left blank on purpose: this is a property of the build, not
+        /// a user preference. A friend's config.json is generated on their first run, so if
+        /// this were empty by default their copy would never update and they would have no
+        /// reason to know why. Set it to "" to disable updating.
         /// </summary>
-        public string RepositoryUrl { get; set; } = "";
+        public string RepositoryUrl { get; set; } = "https://github.com/Sidi3355/saurus";
 
         /// <summary>Include pre-releases. Useful for testing an update before friends get it.</summary>
         public bool AllowPrerelease { get; set; } = false;

@@ -45,8 +45,10 @@ $releaseDir = Join-Path $root 'releases'
 function Step($msg) { Write-Host "`n==> $msg" -ForegroundColor Cyan }
 
 # --- prerequisites --------------------------------------------------------
-$dotnet = Get-Command dotnet -ErrorAction SilentlyContinue
-if (-not $dotnet) { $dotnet = Join-Path $env:ProgramFiles 'dotnet\dotnet.exe' }
+# .Source, not the CommandInfo itself: Test-Path against a CommandInfo stringifies it to the
+# command name rather than its path, so this silently claimed dotnet was missing.
+$dotnetCmd = Get-Command dotnet -ErrorAction SilentlyContinue
+$dotnet = if ($dotnetCmd) { $dotnetCmd.Source } else { Join-Path $env:ProgramFiles 'dotnet\dotnet.exe' }
 if (-not (Test-Path $dotnet)) { throw "dotnet not found. Install the .NET 10 SDK." }
 
 if (-not (Get-Command vpk -ErrorAction SilentlyContinue)) {
