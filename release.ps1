@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Builds SAURUS, packages it as an installer, and publishes it to GitHub Releases.
 
@@ -80,6 +80,20 @@ if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
 if ($LASTEXITCODE -ne 0) { throw "Build failed." }
 
 # --- package --------------------------------------------------------------
+# Start from a clean local releases directory, then pull the published ones back down.
+# Velopack builds delta packages by diffing against the previous release, so it needs those
+# present - and a stale local copy of the version being built makes it refuse to pack at all.
+if (Test-Path $releaseDir) { Remove-Item $releaseDir -Recurse -Force }
+New-Item -ItemType Directory -Path $releaseDir | Out-Null
+
+if (-not $LocalOnly) {
+    Step "Fetching published releases (for delta generation)"
+    & vpk download github --repoUrl $Repo --outputDir $releaseDir 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "   none found - this will be a full release" -ForegroundColor DarkGray
+    }
+}
+
 Step "Packaging installer"
 $vpkArgs = @(
     'pack',
@@ -121,7 +135,9 @@ if ($useGh) {
     if ($Prerelease) { $ghArgs += '--prerelease' }
     $ghArgs += ($assets | ForEach-Object { $_.FullName })
 
-    & gh release create @ghArgs
+    # $ghArgs already begins with 'release','create' - splatting after naming them again
+    # produced `gh release create release create ...`.
+    & gh @ghArgs
     if ($LASTEXITCODE -ne 0) { throw "gh release create failed." }
 }
 else {
