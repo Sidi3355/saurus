@@ -1,0 +1,65 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- net10.0-windows so a single .NET 10 SDK install is enough to build *and* run.
+         Targeting net8.0 would build fine under an SDK 10, but the app would then need the
+         .NET 8 runtime as well: roll-forward does not cross major versions by default. -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <AssemblyName>Saurus</AssemblyName>
+    <RootNamespace>Saurus</RootNamespace>
+
+    <!-- Bumped by release.ps1. Velopack compares this against the newest GitHub release to
+         decide whether an update exists, so it is the single source of version truth. -->
+    <Version>1.0.0</Version>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- No App.xaml: the entry point is Program.Main, hand-written. -->
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+    <StartupObject>Saurus.Program</StartupObject>
+    <InvariantGlobalization>false</InvariantGlobalization>
+
+    <!-- WFO0003: WinForms wants DPI awareness set via ApplicationHighDpiMode rather than the
+         manifest. This is a WPF app that only borrows WinForms for the tray icon, and WPF
+         reads PerMonitorV2 awareness from the manifest, so the manifest stays. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    This is a WPF app that borrows two things from WinForms (NotifyIcon and the runtime-drawn
+    tray icon). Enabling UseWindowsForms also drops `global using System.Windows.Forms` and
+    `global using System.Drawing` into every file, which collides head-on with WPF: Brush,
+    Button, TextBox, RichTextBox, ProgressBar and Timer all exist in both worlds.
+
+    Rather than fully-qualify those at every use site, the two implicit usings are removed
+    here. TrayIcon.cs — the only file that genuinely wants WinForms — imports both explicitly.
+  -->
+  <ItemGroup>
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- System.Security.Cryptography.ProtectedData (DPAPI) is part of the shared framework
+         from .NET 10 on, so it no longer needs a package reference. -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.0" />
+
+    <!-- Microsoft.Data.Sqlite 10.0.0 still pulls SQLitePCLRaw 2.1.11, whose native
+         e_sqlite3 build carries GHSA-2m69-gcr7-jv3q. Pinned forward to the patched 2.1.12;
+         this is a direct reference purely to win the version conflict. -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
+
+    <!-- Installer, delta updates and a GitHub release source. The maintained successor to
+         Squirrel; chosen over hand-rolling an updater because self-updating a running
+         Windows executable is a nest of edge cases (locked files, elevation, rollback) that
+         is not worth solving twice. -->
+    <PackageReference Include="Velopack" Version="1.2.0" />
+  </ItemGroup>
+
+</Project>

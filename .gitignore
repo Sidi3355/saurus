@@ -1,0 +1,19 @@
+# Build output
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Publish and packaging output. `releases/` in particular holds the packaged installer,
+# which is tens of megabytes and belongs on the GitHub release page, not in git history.
+dist/
+publish/
+releases/
+
+# Never commit anything key-shaped. The API key lives DPAPI-encrypted in
+# %APPDATA%\Saurus\apikey.dat and must never appear in the repo.
+*.key
+apikey.dat
+appsettings.local.json
+.env

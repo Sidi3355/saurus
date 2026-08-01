@@ -1,0 +1,221 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Dark theme for the panel and history window.
+
+        This exists because WPF's default control templates are light-themed and ignore a
+        Background you set on them: a Button keeps its own grey hover brush, a ScrollBar
+        stays a chunky light-grey classic control, and ListBoxItem selection is a hard
+        system blue. Setting properties in code cannot fix any of that - the templates have
+        to be replaced, and XAML is the right tool for a template.
+    -->
+
+    <!-- surfaces -->
+    <SolidColorBrush x:Key="SurfaceBg"     Color="#15171C"/>
+    <SolidColorBrush x:Key="SurfaceChrome" Color="#1B1E25"/>
+    <SolidColorBrush x:Key="SurfaceInput"  Color="#212530"/>
+    <SolidColorBrush x:Key="SurfaceHover"  Color="#282D38"/>
+    <SolidColorBrush x:Key="SurfacePress"  Color="#333A47"/>
+
+    <!-- lines and text -->
+    <!-- Contrast raised across the board: the first pass was too low to read comfortably on
+         a bright monitor, and the two dim greys were close enough to each other to be
+         indistinguishable. -->
+    <SolidColorBrush x:Key="Hairline"   Color="#2A303A"/>
+    <SolidColorBrush x:Key="TextBody"   Color="#E8ECF2"/>
+    <SolidColorBrush x:Key="TextDim"    Color="#9AA3B2"/>
+    <SolidColorBrush x:Key="TextFaint"  Color="#767F8E"/>
+    <SolidColorBrush x:Key="Accent"     Color="#5AA9FF"/>
+    <SolidColorBrush x:Key="AccentSoft" Color="#2B3A50"/>
+
+    <!-- ============================================================ buttons -->
+    <Style x:Key="FlatButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource TextDim}"/>
+        <Setter Property="FontFamily" Value="Segoe UI"/>
+        <Setter Property="FontSize" Value="11.5"/>
+        <Setter Property="Padding" Value="10,5,10,5"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="6"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource SurfaceHover}"/>
+                            <Setter Property="Foreground" Value="{StaticResource TextBody}"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource SurfacePress}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.35"/>
+                            <Setter Property="Cursor" Value="Arrow"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The primary action reads as filled rather than ghosted. -->
+    <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource FlatButton}">
+        <Setter Property="Background" Value="{StaticResource AccentSoft}"/>
+        <Setter Property="Foreground" Value="{StaticResource Accent}"/>
+    </Style>
+
+    <!-- ============================================================ text box -->
+    <Style x:Key="PanelTextBox" TargetType="TextBox">
+        <Setter Property="Foreground" Value="{StaticResource TextBody}"/>
+        <Setter Property="CaretBrush" Value="{StaticResource Accent}"/>
+        <Setter Property="SelectionBrush" Value="{StaticResource Accent}"/>
+        <Setter Property="FontFamily" Value="Segoe UI"/>
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="Padding" Value="11,8,11,8"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="Chrome"
+                            Background="{StaticResource SurfaceInput}"
+                            BorderBrush="{StaticResource Hairline}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      Margin="{TemplateBinding Padding}"
+                                      VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource SurfacePress}"/>
+                        </Trigger>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============================================================ scrollbar -->
+    <!-- Implicit: applies to the scrollbars inside RichTextBox and ListBox too, which is
+         the whole point - those are the ones that would otherwise look like Windows 98. -->
+    <Style TargetType="ScrollBar">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Width" Value="9"/>
+        <Setter Property="MinWidth" Value="9"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Grid Background="Transparent">
+                        <Track x:Name="PART_Track" IsDirectionReversed="True">
+                            <Track.Thumb>
+                                <Thumb>
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Border x:Name="Bar"
+                                                    Background="#39414F"
+                                                    CornerRadius="3"
+                                                    Margin="3,0,3,0"/>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Bar" Property="Background" Value="#4C5666"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0" Focusable="False"/>
+                            </Track.IncreaseRepeatButton>
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" Focusable="False"/>
+                            </Track.DecreaseRepeatButton>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============================================================ list items -->
+    <Style TargetType="ListBoxItem">
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Margin" Value="0,1,0,1"/>
+        <Setter Property="Foreground" Value="{StaticResource TextBody}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border x:Name="Chrome"
+                            Background="Transparent"
+                            CornerRadius="7"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource SurfaceHover}"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource AccentSoft}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============================================================ progress -->
+    <!-- A 2px accent hairline while streaming. The stock ProgressBar draws a track, a
+         border and an animated gradient chunk; none of that belongs here. -->
+    <Style x:Key="StreamBar" TargetType="ProgressBar">
+        <Setter Property="Height" Value="2"/>
+        <Setter Property="IsIndeterminate" Value="True"/>
+        <Setter Property="Foreground" Value="{StaticResource Accent}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ProgressBar">
+                    <Grid x:Name="Root" ClipToBounds="True" Background="Transparent">
+                        <Border x:Name="Glide"
+                                Background="{TemplateBinding Foreground}"
+                                Width="90"
+                                HorizontalAlignment="Left"
+                                CornerRadius="1">
+                            <Border.RenderTransform>
+                                <TranslateTransform x:Name="Slide" X="-90"/>
+                            </Border.RenderTransform>
+                        </Border>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsIndeterminate" Value="True">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard Name="Run">
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <DoubleAnimation Storyboard.TargetName="Slide"
+                                                         Storyboard.TargetProperty="X"
+                                                         From="-90" To="620" Duration="0:0:1.1"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <StopStoryboard BeginStoryboardName="Run"/>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>
