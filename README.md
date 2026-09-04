@@ -7,6 +7,11 @@ app you were in. Ask follow-ups in the popup. That's the whole product.
 The thing being optimised is friction and latency. The competition is alt-tabbing to a
 chatbot and pasting.
 
+<video src="https://github.com/Sidi3355/saurus/raw/main/docs/demo.mp4" controls muted playsinline width="100%"></video>
+
+[▶ Watch the demo](https://github.com/Sidi3355/saurus/blob/main/docs/demo.mp4) (17 s) — if the
+player above doesn't load in your client.
+
 ---
 
 ## Setup
@@ -579,5 +584,4 @@ each other. `ExplainOrchestrator` is the only thing that knows all four exist.
 
 ## Not in v1
 
-No screenshot or vision capture. No thread browser. No settings GUI. No installer,
-auto-update, telemetry, or packaging.
+No thread browser. No settings GUI. No installer, auto-update, telemetry, or packaging.
